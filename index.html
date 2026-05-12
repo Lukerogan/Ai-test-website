@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space Invaders</title>
+  <link rel="stylesheet" href="stylesheet.css" />
+</head>
+<body>
+  <div class="game-shell">
+    <header class="status-bar">
+      <div class="status score">Score: <span id="score">0</span></div>
+      <div class="status level">Level: <span id="level">1</span></div>
+      <div class="status lives">Lives: <span id="lives">3</span></div>
+      <div class="status highscore">High Score: <span id="highScore">0</span></div>
+    </header>
+
+    <div class="canvas-wrapper">
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
+      <div id="overlay" class="overlay">
+        <div id="overlayText" class="overlay-text">
+          SPACE INVADERS
+        </div>
+        <button id="startButton" class="btn">START GAME</button>
+      </div>
+    </div>
+
+    <section class="scoreboard-panel">
+      <div class="scoreboard-header">Scoreboard</div>
+      <ol id="scoreboardList" class="scoreboard-list">
+        <li class="scoreboard-item">No scores yet</li>
+      </ol>
+      <div class="powerup-status">Power-up: <span id="powerupName">None</span></div>
+    </section>
+
+    <footer class="help-text">
+      Controls: LEFT / RIGHT arrow keys to move, SPACE to shoot. Destroy all invaders before they reach the bottom.
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

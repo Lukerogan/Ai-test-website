@@ -13,7 +13,7 @@ const startButton = document.getElementById("startButton");
 const GAME_WIDTH = canvas.width;
 const GAME_HEIGHT = canvas.height;
 const SHIP_WIDTH = 60;
-const SHIP_HEIGHT = 18;
+const SHIP_HEIGHT = 34;
 const SHIP_SPEED = 7;
 const BULLET_SPEED = 9;
 const ENEMY_BULLET_SPEED = 4.5;
@@ -22,15 +22,17 @@ const INVADER_HEIGHT = 28;
 const INVADER_PADDING = 18;
 const TOP_PADDING = 70;
 const LEFT_PADDING = 70;
-const ROW_SPEED_INCREASE = 0.12;
+const ROW_SPEED_INCREASE = 0.035;
 const SCOREBOARD_KEY = "spaceInvadersScoreboard";
 const HIGH_SCORE_KEY = "spaceInvadersHighScore";
 const MAX_SCOREBOARD = 5;
 const POWERUP_TYPES = [
-  { type: "rapid", label: "Rapid Fire", duration: 900 },
-  { type: "double", label: "Double Shot", duration: 900 },
-  { type: "shield", label: "Shield", duration: 900 },
-  { type: "bonus", label: "Score Boost", duration: 0 }
+  { type: "rapid", label: "Rapid Fire", duration: 900, color: "#33d6ff" },
+  { type: "double", label: "Double Shot", duration: 900, color: "#7cff8f" },
+  { type: "spread", label: "Spread Shot", duration: 900, color: "#ffd966" },
+  { type: "slow", label: "Slow Time", duration: 600, color: "#b28bff" },
+  { type: "shield", label: "Shield", duration: 900, color: "#88f0ff" },
+  { type: "bonus", label: "Score Boost", duration: 0, color: "#ff8f8f" }
 ];
 
 const SPRITES = {
@@ -46,10 +48,18 @@ const SPRITES = {
 };
 
 const LEVELS = [
-  { rows: 3, columns: 8, speed: 1, fireRate: 0.004, scoreValue: 100, type: "normal", hardRows: 0 },
-  { rows: 4, columns: 9, speed: 1.35, fireRate: 0.0055, scoreValue: 125, type: "normal", hardRows: 1 },
-  { rows: 5, columns: 10, speed: 1.7, fireRate: 0.007, scoreValue: 150, type: "normal", hardRows: 2 },
-  { rows: 0, columns: 0, speed: 0.8, fireRate: 0.008, scoreValue: 500, type: "boss", bossHealth: 80 }
+  { rows: 3, columns: 8, speed: 0.8, fireRate: 0.004, scoreValue: 100, type: "normal", hardRows: 0, intermediateRows: 0 },
+  { rows: 4, columns: 9, speed: 0.95, fireRate: 0.0055, scoreValue: 125, type: "normal", hardRows: 1, intermediateRows: 0 },
+  { rows: 5, columns: 10, speed: 1.05, fireRate: 0.007, scoreValue: 150, type: "normal", hardRows: 1, intermediateRows: 1 },
+  { rows: 5, columns: 11, speed: 1.15, fireRate: 0.0085, scoreValue: 175, type: "normal", hardRows: 2, intermediateRows: 1 },
+  { rows: 6, columns: 12, speed: 1.25, fireRate: 0.01, scoreValue: 200, type: "normal", hardRows: 2, intermediateRows: 2 },
+  { rows: 6, columns: 12, speed: 1.35, fireRate: 0.012, scoreValue: 225, type: "normal", hardRows: 3, intermediateRows: 2 },
+  { rows: 7, columns: 13, speed: 1.45, fireRate: 0.014, scoreValue: 250, type: "normal", hardRows: 3, intermediateRows: 3 },
+  { rows: 0, columns: 0, speed: 0.8, fireRate: 0.008, scoreValue: 500, type: "boss", bossHealth: 100 },
+  { rows: 7, columns: 14, speed: 1.55, fireRate: 0.016, scoreValue: 275, type: "normal", hardRows: 4, intermediateRows: 3 },
+  { rows: 0, columns: 0, speed: 0.9, fireRate: 0.01, scoreValue: 750, type: "boss", bossHealth: 120 },
+  { rows: 8, columns: 15, speed: 1.65, fireRate: 0.018, scoreValue: 300, type: "normal", hardRows: 4, intermediateRows: 4 },
+  { rows: 0, columns: 0, speed: 1, fireRate: 0.012, scoreValue: 1000, type: "boss", bossHealth: 150 }
 ];
 
 let keys = { ArrowLeft: false, ArrowRight: false, Space: false };
@@ -71,9 +81,18 @@ let gameState = {
   shootingCooldown: 0,
   pauseTimer: 0,
   activePowerup: null,
+  persistentPowerups: [],
   powerupExpires: 0,
+  shipLevel: 1,
+  rapidFire: false,
+  doubleShot: false,
+  spreadShot: false,
   shieldActive: false,
+  shieldCharges: 0,
   shieldExpires: 0,
+  slowTime: false,
+  slowExpires: 0,
+  awaitingChoice: false,
   gridPattern: null,
   gridPhase: 0
 };
@@ -182,22 +201,30 @@ function updateHUD() {
 
 function showOverlay(message, buttonText = "START GAME") {
   overlayText.innerHTML = formatOverlayText(message);
+  overlayText.style.fontSize = "2rem";
   startButton.textContent = buttonText;
+  const optionArea = document.getElementById("optionButtons");
+  if (optionArea) {
+    optionArea.style.display = "none";
+    optionArea.innerHTML = "";
+  }
+  startButton.style.display = "inline-flex";
   overlay.style.display = "flex";
 }
 
 function showVictoryOverlay(score) {
   const victoryHTML = `
-    <div style="text-align: center; animation: pulse 0.6s ease-in-out infinite;">
+    <div style="text-align: center; animation: pulse 0.6s ease-in-out infinite; font-size: 2.8rem; font-weight: 900; letter-spacing: 0.2em;">
       ★ MISSION COMPLETE ★
     </div>
-    <div style="font-size: 2.4rem; margin: 20px 0; color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.8);">VICTORY</div>
-    <div style="font-size: 1.2rem; margin: 16px 0; color: #ffff66;">The threat has been eliminated!</div>
-    <div style="font-size: 1.4rem; margin: 20px 0; color: #33d6ff;">Final Score: ${score}</div>
-    <div style="font-size: 0.95rem; color: #c7e6ff; margin-top: 16px;">Your name has been added to the hall of fame.</div>
+    <div style="font-size: 2.8rem; margin: 20px 0; color: #ffff00; text-shadow: 0 0 30px rgba(255, 255, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4); font-weight: 900; letter-spacing: 0.1em;">VICTORY</div>
+    <div style="font-size: 1.3rem; margin: 16px 0; color: #ffff00; text-shadow: 0 0 15px rgba(255, 255, 0, 0.6);">The threat has been eliminated!</div>
+    <div style="font-size: 1.6rem; margin: 20px 0; color: #ffff00; text-shadow: 0 0 20px rgba(255, 255, 0, 0.7); font-weight: bold;">Final Score: ${score}</div>
+    <div style="font-size: 1rem; color: #ffff00; margin-top: 16px; text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);">★ Added to hall of fame ★</div>
   `;
   overlayText.innerHTML = victoryHTML;
   startButton.textContent = "PLAY AGAIN";
+  startButton.style.display = "inline-flex";
   overlay.style.display = "flex";
   
   if (!document.getElementById('victory-style')) {
@@ -205,8 +232,8 @@ function showVictoryOverlay(score) {
     style.id = 'victory-style';
     style.textContent = `
       @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.7; transform: scale(1.05); }
+        0%, 100% { opacity: 1; transform: scale(1); color: #ffff00; text-shadow: 0 0 30px rgba(255, 255, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4); }
+        50% { opacity: 0.6; transform: scale(1.08); color: #ff0000; text-shadow: 0 0 40px rgba(255, 0, 0, 0.8), 0 0 80px rgba(255, 0, 0, 0.5); }
       }
     `;
     document.head.appendChild(style);
@@ -233,10 +260,16 @@ function createInvaders(levelIndex) {
   }
   const invaders = [];
   const hardRowStart = Math.max(0, levelConfig.rows - levelConfig.hardRows);
+  const intermediateRowStart = Math.max(0, hardRowStart - levelConfig.intermediateRows);
   
   for (let row = 0; row < levelConfig.rows; row++) {
     for (let col = 0; col < levelConfig.columns; col++) {
-      const isHard = row >= hardRowStart;
+      let type = "normal";
+      if (row >= hardRowStart) {
+        type = "hard";
+      } else if (row >= intermediateRowStart) {
+        type = "intermediate";
+      }
       invaders.push({
         x: LEFT_PADDING + col * (INVADER_WIDTH + INVADER_PADDING),
         y: TOP_PADDING + row * (INVADER_HEIGHT + 10),
@@ -244,9 +277,9 @@ function createInvaders(levelIndex) {
         height: INVADER_HEIGHT,
         alive: true,
         row,
-        type: isHard ? "hard" : "normal",
-        health: isHard ? 3 : 1,
-        maxHealth: isHard ? 3 : 1
+        type,
+        health: type === "hard" ? 3 : type === "intermediate" ? 2 : 1,
+        maxHealth: type === "hard" ? 3 : type === "intermediate" ? 2 : 1
       });
     }
   }
@@ -280,15 +313,13 @@ function startLevel() {
   gameState.boss = levelConfig.type === "boss" ? createBoss(levelIndex) : null;
   gameState.bullets = [];
   gameState.enemyBullets = [];
-  gameState.powerups = [];
   gameState.explosions = [];
   gameState.attackDirection = 1;
   gameState.shootingCooldown = 0;
   gameState.pauseTimer = 0;
-  gameState.activePowerup = null;
-  gameState.powerupExpires = 0;
-  gameState.shieldActive = false;
-  gameState.shieldExpires = 0;
+  if (gameState.persistentPowerups.length > 0) {
+    gameState.persistentPowerups.forEach(pu => activatePersistentPowerup(pu));
+  }
   updateHUD();
 }
 
@@ -306,17 +337,93 @@ function startGame() {
   gameState.attackDirection = 1;
   gameState.shootingCooldown = 0;
   gameState.pauseTimer = 0;
+  gameState.persistentPowerups = [];
   gameState.activePowerup = null;
   gameState.powerupExpires = 0;
+  gameState.shipLevel = 1;
+  gameState.rapidFire = false;
+  gameState.doubleShot = false;
+  gameState.spreadShot = false;
   gameState.shieldActive = false;
+  gameState.shieldCharges = 0;
   gameState.shieldExpires = 0;
+  gameState.slowTime = false;
+  gameState.slowExpires = 0;
+  gameState.awaitingChoice = false;
   resetShip();
   startLevel();
   hideOverlay();
 }
 
+function hideOverlay() {
+  overlay.style.display = "none";
+  const optionArea = document.getElementById("optionButtons");
+  if (optionArea) {
+    optionArea.style.display = "none";
+    optionArea.innerHTML = "";
+  }
+  startButton.style.display = "inline-flex";
+}
+
+function getRandomPowerupChoices(count = 2) {
+  const pool = POWERUP_TYPES.filter(p => p.type !== "bonus");
+  const choices = [];
+  while (choices.length < count && pool.length > 0) {
+    const index = Math.floor(Math.random() * pool.length);
+    choices.push(pool.splice(index, 1)[0]);
+  }
+  return choices;
+}
+
+function activatePersistentPowerup(powerup) {
+  gameState.persistentPowerups.push({ ...powerup, permanent: true });
+  gameState.activePowerup = { ...powerup, permanent: true, duration: Infinity, stacked: true };
+  gameState.powerupExpires = Infinity;
+  if (powerup.type === "slow") {
+    gameState.slowTime = true;
+  }
+  if (powerup.type === "rapid") {
+    gameState.rapidFire = true;
+  }
+  if (powerup.type === "double") {
+    gameState.doubleShot = true;
+  }
+  if (powerup.type === "spread") {
+    gameState.spreadShot = true;
+  }
+  if (powerup.type === "shield") {
+    gameState.shieldCharges = (gameState.shieldCharges || 0) + 1;
+    gameState.shieldActive = true;
+    gameState.shieldExpires = Infinity;
+  }
+}
+
+function showChoiceOverlay(message, options, callback) {
+  overlayText.innerHTML = formatOverlayText(message);
+  overlayText.style.fontSize = "1.8rem";
+  overlayText.style.marginBottom = "32px";
+  startButton.style.display = "none";
+  const buttonArea = document.getElementById("optionButtons");
+  buttonArea.innerHTML = "";
+  buttonArea.style.display = "flex";
+  options.forEach(option => {
+    const btn = document.createElement("button");
+    btn.className = "choice-btn";
+    btn.textContent = option.label;
+    btn.addEventListener("click", () => {
+      gameState.awaitingChoice = false;
+      hideOverlay();
+      callback(option);
+    });
+    buttonArea.appendChild(btn);
+  });
+  overlay.style.display = "flex";
+  gameState.awaitingChoice = true;
+}
+
 function nextLevel() {
   gameState.level += 1;
+  gameState.gridPattern = null;
   if (gameState.level > LEVELS.length) {
     storeScore(gameState.score);
     showVictoryOverlay(gameState.score);
@@ -326,14 +433,135 @@ function nextLevel() {
   }
   gameState.running = false;
   gameState.boss = null;
-  showOverlay(`Level ${gameState.level} complete!`, "NEXT LEVEL");
+  const choices = getRandomPowerupChoices(2);
+  showChoiceOverlay(`Ready for Level ${gameState.level}!\nChoose your upgrade`, choices, choice => {
+    gameState.shipLevel += 1;
+    activatePersistentPowerup(choice);
+    startLevel();
+    gameState.running = true;
+  });
+}
+
+function showMGSGameOver(score) {
+  const message = "GAME OVER";
+  const container = document.createElement("div");
+  container.id = "mgs-game-over";
+  container.style.cssText = `
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(20, 0, 0, 0.95));
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+  `;
+  
+  const textContainer = document.createElement("div");
+  textContainer.style.cssText = `
+    font-size: 120px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-align: center;
+    margin-bottom: 40px;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+  `;
+  
+  const scoreContainer = document.createElement("div");
+  scoreContainer.style.cssText = `
+    font-size: 32px;
+    color: #ffff00;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(255, 255, 0, 0.6);
+  `;
+  scoreContainer.textContent = `FINAL SCORE: ${score}`;
+  
+  const playAgainBtn = document.createElement("button");
+  playAgainBtn.style.cssText = `
+    margin-top: 40px;
+    padding: 16px 40px;
+    font-size: 20px;
+    font-weight: bold;
+    border: 2px solid #ff0000;
+    background: rgba(0, 0, 0, 0.8);
+    color: #ff0000;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  `;
+  playAgainBtn.textContent = "TRY AGAIN";
+  playAgainBtn.onmouseover = () => {
+    playAgainBtn.style.background = "#ff0000";
+    playAgainBtn.style.color = "#000000";
+  };
+  playAgainBtn.onmouseout = () => {
+    playAgainBtn.style.background = "rgba(0, 0, 0, 0.8)";
+    playAgainBtn.style.color = "#ff0000";
+  };
+  playAgainBtn.onclick = () => {
+    container.remove();
+    startGame();
+  };
+  
+  container.appendChild(textContainer);
+  container.appendChild(scoreContainer);
+  container.appendChild(playAgainBtn);
+  document.body.appendChild(container);
+  
+  let charIndex = 0;
+  const chars = message.split("");
+  const dropInterval = setInterval(() => {
+    if (charIndex < chars.length) {
+      const char = document.createElement("span");
+      char.textContent = chars[charIndex];
+      char.style.cssText = `
+        display: inline-block;
+        color: #ff0000;
+        text-shadow: 0 0 30px rgba(255, 0, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4);
+        animation: mgsLetterDrop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        margin: 0 2px;
+      `;
+      textContainer.appendChild(char);
+      charIndex++;
+    } else {
+      clearInterval(dropInterval);
+    }
+  }, 80);
+  
+  if (!document.getElementById("mgs-animation-style")) {
+    const style = document.createElement("style");
+    style.id = "mgs-animation-style";
+    style.textContent = `
+      @keyframes mgsLetterDrop {
+        0% {
+          opacity: 0;
+          transform: translateY(-100px) scale(1.2);
+          filter: blur(8px);
+        }
+        50% {
+          opacity: 1;
+          transform: translateY(10px) scale(0.95);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 function endGame() {
   storeScore(gameState.score);
-  showOverlay(`Game Over\nScore: ${gameState.score}`, "TRY AGAIN");
   gameState.running = false;
   gameState.gameOver = true;
+  overlay.style.display = "none";
+  showMGSGameOver(gameState.score);
 }
 
 function loseLife() {
@@ -342,10 +570,10 @@ function loseLife() {
   gameState.pauseTimer = 60;
   gameState.bullets = [];
   gameState.enemyBullets = [];
-  gameState.powerups = [];
-  gameState.activePowerup = null;
-  gameState.shieldActive = false;
-  gameState.shieldExpires = 0;
+  gameState.gridPattern = null;
+  if (gameState.boss) {
+    gameState.boss.gridActive = false;
+  }
 
   if (gameState.lives <= 0) {
     endGame();
@@ -357,14 +585,18 @@ function fireBullet() {
     return;
   }
   const bullets = [];
-  if (gameState.activePowerup && gameState.activePowerup.type === "double") {
+  if (gameState.doubleShot) {
     bullets.push({ x: gameState.ship.x + 8, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
     bullets.push({ x: gameState.ship.x + gameState.ship.width - 14, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+  } else if (gameState.spreadShot) {
+    bullets.push({ x: gameState.ship.x + gameState.ship.width / 2 - 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+    bullets.push({ x: gameState.ship.x + 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+    bullets.push({ x: gameState.ship.x + gameState.ship.width - 9, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
   } else {
     bullets.push({ x: gameState.ship.x + gameState.ship.width / 2 - 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
   }
   bullets.forEach(bullet => gameState.bullets.push(bullet));
-  gameState.shootingCooldown = gameState.activePowerup && gameState.activePowerup.type === "rapid" ? 6 : 14;
+  gameState.shootingCooldown = gameState.rapidFire ? 6 : 14;
 }
 
 function fireEnemyBullet(invader) {
@@ -393,6 +625,9 @@ function createExplosion(x, y, color = "#ffcc66", count = 22) {
 }
 
 function spawnPowerup(x, y) {
+  if (Math.random() > 0.045) {
+    return;
+  }
   const powerup = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
   gameState.powerups.push({
     x: x + INVADER_WIDTH / 2 - 11,
@@ -401,6 +636,8 @@ function spawnPowerup(x, y) {
     height: 22,
     type: powerup.type,
     label: powerup.label,
+    duration: powerup.duration,
+    color: powerup.color,
     speed: 2.2
   });
 }
@@ -411,11 +648,22 @@ function applyPowerup(item) {
     createExplosion(item.x, item.y, "#8cf7ff", 16);
     return;
   }
+
+  if (gameState.activePowerup && gameState.activePowerup.type === "slow" && item.type !== "slow") {
+    gameState.slowTime = false;
+  }
+
   gameState.activePowerup = item;
   gameState.powerupExpires = gameState.frames + item.duration;
+
   if (item.type === "shield") {
     gameState.shieldActive = true;
     gameState.shieldExpires = gameState.powerupExpires;
+  }
+
+  if (item.type === "slow") {
+    gameState.slowTime = true;
+    gameState.slowExpires = gameState.powerupExpires;
   }
 }
 
@@ -439,15 +687,24 @@ function updatePowerups() {
 }
 
 function updatePowerupState() {
-  if (gameState.activePowerup && gameState.frames >= gameState.powerupExpires) {
+  if (gameState.activePowerup && !gameState.activePowerup.permanent && gameState.frames >= gameState.powerupExpires) {
     if (gameState.activePowerup.type === "shield") {
       gameState.shieldActive = false;
+    }
+    if (gameState.activePowerup.type === "slow") {
+      gameState.slowTime = false;
     }
     gameState.activePowerup = null;
   }
   if (gameState.shieldActive && gameState.frames >= gameState.shieldExpires) {
     gameState.shieldActive = false;
     if (gameState.activePowerup && gameState.activePowerup.type === "shield") {
+      gameState.activePowerup = null;
+    }
+  }
+  if (gameState.slowTime && gameState.frames >= gameState.slowExpires) {
+    gameState.slowTime = false;
+    if (gameState.activePowerup && gameState.activePowerup.type === "slow") {
       gameState.activePowerup = null;
     }
   }
@@ -472,7 +729,7 @@ function updateInvaders() {
     leftMost = Math.min(leftMost, invader.x);
     rightMost = Math.max(rightMost, invader.x + invader.width);
   });
-  const speed = levelConfig.speed + levelIndex * ROW_SPEED_INCREASE;
+  const speed = (levelConfig.speed + levelIndex * ROW_SPEED_INCREASE) * (gameState.slowTime ? 0.55 : 1);
   const shouldDrop = (rightMost >= GAME_WIDTH - 16 && gameState.attackDirection > 0) || (leftMost <= 16 && gameState.attackDirection < 0);
   if (shouldDrop) {
     gameState.attackDirection *= -1;
@@ -500,6 +757,10 @@ function updateInvaders() {
 }
 
 function updateBoss() {
+  if (gameState.pauseTimer > 0) {
+    return;
+  }
+
   const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
   const levelConfig = LEVELS[levelIndex];
   
@@ -509,10 +770,10 @@ function updateBoss() {
   
   gameState.boss.fireCounter += 1;
   
-  const gridCycleLength = 180;
-  const gridShowDuration = 30;
+  const gridCycleLength = 260;
+  const gridShowDuration = 70;
   const gridFireStart = gridShowDuration;
-  const gridFireEnd = gridShowDuration + 40;
+  const gridFireEnd = gridShowDuration + 50;
   
   const cyclePos = gameState.boss.fireCounter % gridCycleLength;
   
@@ -556,7 +817,7 @@ function updateBoss() {
     gameState.boss.gridActive = false;
   }
   
-  const moveSpeed = 3.5;
+  const moveSpeed = (gameState.slowTime ? 2.2 : 3.5);
   const leftBound = 60;
   const rightBound = GAME_WIDTH - gameState.boss.width - 60;
   
@@ -611,14 +872,14 @@ function detectCollisions() {
         if (invader.health <= 0) {
           invader.alive = false;
           const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
-          gameState.score += LEVELS[levelIndex].scoreValue;
+          let baseScore = LEVELS[levelIndex].scoreValue;
           if (invader.type === "hard") {
-            gameState.score += LEVELS[levelIndex].scoreValue;
+            baseScore *= 2;
+          } else if (invader.type === "intermediate") {
+            baseScore = Math.floor(baseScore * 1.5);
           }
+          gameState.score += baseScore;
           createExplosion(invader.x + invader.width / 2, invader.y + invader.height / 2, "#66ffea", 20);
-          if (Math.random() < 0.075) {
-            spawnPowerup(invader.x, invader.y);
-          }
         } else {
           createExplosion(invader.x + invader.width / 2, invader.y + invader.height / 2, "#ffaa66", 8);
         }
@@ -643,6 +904,7 @@ function detectCollisions() {
       } else {
         loseLife();
       }
+      break;
     }
   }
 }
@@ -658,7 +920,8 @@ function updateBullets() {
 
   for (let index = gameState.enemyBullets.length - 1; index >= 0; index--) {
     const bullet = gameState.enemyBullets[index];
-    bullet.y += bullet.speed;
+    const speedMultiplier = gameState.slowTime ? 0.55 : 1;
+    bullet.y += bullet.speed * speedMultiplier;
     if (bullet.y > GAME_HEIGHT) {
       gameState.enemyBullets.splice(index, 1);
     }
@@ -679,11 +942,12 @@ function updateExplosions() {
 }
 
 function updateShip() {
+  const speed = SHIP_SPEED + (gameState.shipLevel - 1) * 0.35;
   if (keys.ArrowLeft) {
-    gameState.ship.x -= SHIP_SPEED;
+    gameState.ship.x -= speed;
   }
   if (keys.ArrowRight) {
-    gameState.ship.x += SHIP_SPEED;
+    gameState.ship.x += speed;
   }
   gameState.ship.x = Math.max(12, Math.min(GAME_WIDTH - SHIP_WIDTH - 12, gameState.ship.x));
   if (keys.Space) {
@@ -712,15 +976,23 @@ function drawShip() {
 function drawInvaders() {
   gameState.invaders.forEach(invader => {
     if (!invader.alive) return;
-    const spriteKey = invader.type === "hard" ? "invaderHard" : "invader";
+    let spriteKey = "invader";
+    let color = "#74d8ff";
+    if (invader.type === "hard") {
+      spriteKey = "invaderHard";
+      color = "#ff6f61";
+    } else if (invader.type === "intermediate") {
+      spriteKey = "invaderIntermediate";
+      color = "#ffa500";
+    }
     drawSprite(spriteKey, invader.x, invader.y, invader.width, invader.height, () => {
-      ctx.fillStyle = invader.type === "hard" ? "#ff6f61" : "#74d8ff";
+      ctx.fillStyle = color;
       ctx.fillRect(invader.x, invader.y, invader.width, invader.height);
       ctx.fillStyle = "#001f3f";
       ctx.fillRect(invader.x + 8, invader.y + 8, invader.width - 16, 4);
     });
     
-    if (invader.type === "hard" && invader.maxHealth > 1) {
+    if ((invader.type === "hard" || invader.type === "intermediate") && invader.maxHealth > 1) {
       const barWidth = invader.width - 4;
       const barHeight = 2;
       const barX = invader.x + 2;
@@ -815,13 +1087,13 @@ function drawBullets() {
 function drawPowerups() {
   gameState.powerups.forEach(powerup => {
     drawSprite("powerup", powerup.x, powerup.y, powerup.width, powerup.height, () => {
-      ctx.fillStyle = "#84ffe3";
+      ctx.fillStyle = powerup.color || "#84ffe3";
       ctx.fillRect(powerup.x, powerup.y, powerup.width, powerup.height);
       ctx.fillStyle = "#050b18";
       ctx.font = "bold 12px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const symbol = powerup.type === "rapid" ? "R" : powerup.type === "double" ? "D" : powerup.type === "shield" ? "S" : "+";
+      const symbol = powerup.type === "rapid" ? "R" : powerup.type === "double" ? "D" : powerup.type === "spread" ? "S" : powerup.type === "slow" ? "T" : powerup.type === "shield" ? "H" : "+";
       ctx.fillText(symbol, powerup.x + powerup.width / 2, powerup.y + powerup.height / 2);
     });
   });
@@ -921,6 +1193,9 @@ window.addEventListener("keyup", event => {
 });
 
 startButton.addEventListener("click", () => {
+  if (gameState.awaitingChoice) {
+    return;
+  }
   if (gameState.gameOver) {
     startGame();
     return;
@@ -936,13 +1211,63 @@ startButton.addEventListener("click", () => {
   }
 });
 
+function showStartupScreen() {
+  const startupHTML = `
+    <div style="text-align: center; margin-bottom: 40px; animation: slideDown 0.8s ease-out;">
+      <div style="font-size: 3.2rem; font-weight: 900; letter-spacing: 0.15em; color: #ff0000; text-shadow: 0 0 40px rgba(255, 0, 0, 0.8), 0 0 80px rgba(255, 0, 0, 0.4); margin-bottom: 16px;">SPACE INVADERS</div>
+      <div style="font-size: 1.2rem; color: #ffff00; text-shadow: 0 0 15px rgba(255, 255, 0, 0.6); letter-spacing: 0.1em;">CLASSIFIED OPERATION</div>
+    </div>
+    <div style="text-align: center; font-size: 1.1rem; color: #ffff00; line-height: 1.8; text-shadow: 0 0 10px rgba(255, 255, 0, 0.4); animation: fadeIn 1.2s ease-in; max-width: 600px;">
+      An extraterrestrial threat has invaded Earth's atmosphere.<br><br>
+      Deploy your vessel and eliminate all hostile forces.<br><br>
+      Good luck, soldier.
+    </div>
+  `;
+  overlayText.innerHTML = startupHTML;
+  startButton.textContent = "BEGIN OPERATION";
+  startButton.style.display = "inline-flex";
+  const optionArea = document.getElementById("optionButtons");
+  if (optionArea) {
+    optionArea.style.display = "none";
+    optionArea.innerHTML = "";
+  }
+  overlay.style.display = "flex";
+  
+  if (!document.getElementById("startup-style")) {
+    const style = document.createElement("style");
+    style.id = "startup-style";
+    style.textContent = `
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-40px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
 function initializeGame() {
   resetShip();
   updateScoreboardDisplay();
   updateHUD();
   tryLoadSprites();
   requestAnimationFrame(loop);
+  showStartupScreen();
 }
 
 initializeGame();
-showOverlay("SPACE INVADERS", "START GAME");
+
+startButton.addEventListener("click", function handleStartButtonClick() {
+  if (!gameState.running && !gameState.awaitingChoice && gameState.gameOver === false && overlay.style.display === "flex") {
+    const choices = getRandomPowerupChoices(2);
+    startButton.removeEventListener("click", handleStartButtonClick);
+    showChoiceOverlay("CHOOSE YOUR INITIAL LOADOUT", choices, choice => {
+      startGame();
+      activatePersistentPowerup(choice);
+    });
+  }
+});

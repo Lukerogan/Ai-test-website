@@ -9,8 +9,8 @@ body {
   justify-content: center;
   align-items: center;
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background: radial-gradient(circle at top, #06101f 0%, #02050f 35%, #000000 100%);
-  color: #c7e6ff;
+  background: linear-gradient(135deg, #1a0000 0%, #0a0000 50%, #1a0505 100%);
+  color: #ffff00;
   overflow: hidden;
 }
 
@@ -19,8 +19,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(9, 46, 87, 0.18) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(9, 46, 87, 0.18) 1px, transparent 1px);
+    linear-gradient(rgba(80, 0, 0, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80, 0, 0, 0.25) 1px, transparent 1px);
   background-size: 56px 56px;
   opacity: 0.4;
   pointer-events: none;
@@ -30,11 +30,12 @@ body::before {
   width: min(92vw, 900px);
   padding: 26px;
   border-radius: 24px;
-  background: linear-gradient(180deg, rgba(5, 10, 22, 0.98), rgba(8, 12, 26, 0.95));
-  border: 1px solid rgba(72, 191, 255, 0.2);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 0 160px rgba(0, 140, 255, 0.07),
-    0 30px 90px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, rgba(30, 5, 5, 0.98), rgba(40, 10, 10, 0.95));
+  border: 2px solid #ff0000;
+  box-shadow: 0 0 0 1px rgba(255, 0, 0, 0.3),
+    inset 0 0 160px rgba(255, 0, 0, 0.05),
+    0 0 40px rgba(255, 0, 0, 0.2),
+    0 30px 90px rgba(0, 0, 0, 0.8);
 }
 
 .status-bar {
@@ -45,9 +46,9 @@ body::before {
   margin-bottom: 18px;
   padding: 18px 22px;
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(2, 11, 25, 0.96), rgba(8, 17, 38, 0.96));
-  border: 1px solid rgba(53, 203, 255, 0.28);
-  box-shadow: inset 0 0 24px rgba(27, 97, 163, 0.18), 0 0 18px rgba(0, 103, 183, 0.08);
+  background: linear-gradient(180deg, rgba(20, 5, 5, 0.96), rgba(40, 15, 15, 0.96));
+  border: 2px solid #ff0000;
+  box-shadow: inset 0 0 24px rgba(255, 0, 0, 0.15), 0 0 18px rgba(255, 0, 0, 0.2);
 }
 
 .status {
@@ -55,8 +56,9 @@ body::before {
   letter-spacing: 0.14em;
   font-family: "Courier New", Courier, monospace;
   text-transform: uppercase;
-  color: #d5f5ff;
-  text-shadow: 0 0 10px rgba(118, 217, 255, 0.22);
+  color: #ffff00;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.6), 0 0 20px rgba(255, 0, 0, 0.3);
+  font-weight: bold;
 }
 
 .status::before {
@@ -66,8 +68,8 @@ body::before {
   height: 10px;
   margin-right: 10px;
   border-radius: 3px;
-  background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(79, 203, 255, 0.9) 40%, rgba(0,0,0,0) 100%);
-  box-shadow: 0 0 8px rgba(77, 205, 255, 0.7);
+  background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255, 0, 0, 0.9) 40%, rgba(0,0,0,0) 100%);
+  box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
   vertical-align: middle;
 }
 
@@ -80,18 +82,19 @@ body::before {
   position: relative;
   border-radius: 20px;
   overflow: hidden;
-  background: radial-gradient(circle at top center, rgba(55, 157, 255, 0.08), transparent 32%),
-    rgba(2, 11, 25, 0.96);
-  border: 1px solid rgba(60, 176, 255, 0.12);
+  background: radial-gradient(circle at top center, rgba(255, 0, 0, 0.05), transparent 32%),
+    rgba(10, 5, 5, 0.98);
+  border: 2px solid #ff0000;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.15);
 }
 
 canvas {
   display: block;
   width: 100%;
   height: auto;
-  background: radial-gradient(circle at 50% 12%, rgba(115, 191, 255, 0.08), transparent 28%),
-    radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.05), transparent 22%),
-    #02030a;
+  background: radial-gradient(circle at 50% 12%, rgba(200, 0, 0, 0.04), transparent 28%),
+    radial-gradient(circle at 80% 18%, rgba(255, 255, 0, 0.03), transparent 22%),
+    #050505;
 }
 
 .overlay {
@@ -101,9 +104,9 @@ canvas {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: rgba(0, 0, 0, 0.8);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85), rgba(30, 0, 0, 0.9));
   border-radius: 20px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(2px);
 }
 
 .overlay-text {
@@ -113,55 +116,93 @@ canvas {
   line-height: 1.05;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: #a7f2ff;
-  text-shadow: 0 0 24px rgba(89, 222, 255, 0.4), 0 0 48px rgba(57, 126, 235, 0.2);
+  color: #ff0000;
+  text-shadow: 0 0 30px rgba(255, 0, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4), 0 0 90px rgba(255, 0, 0, 0.2);
+  font-weight: 900;
+}
+
+.option-buttons {
+  display: none;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.choice-btn {
+  min-width: 160px;
+  padding: 12px 20px;
+  border-radius: 4px;
+  border: 2px solid #ff0000;
+  color: #ffff00;
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(0, 0, 0, 0.8));
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.4), inset 0 0 10px rgba(255, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+}
+
+.choice-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), inset 0 0 15px rgba(255, 0, 0, 0.3);
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(0, 0, 0, 0.9));
 }
 
 .btn {
-  border: none;
-  border-radius: 999px;
+  border: 2px solid #ff0000;
+  border-radius: 4px;
   padding: 14px 34px;
   font-size: 1rem;
-  font-weight: 700;
-  color: #05162e;
-  background: linear-gradient(135deg, #26d7ff, #7a5cf0);
-  box-shadow: 0 14px 28px rgba(38, 215, 255, 0.25);
+  font-weight: 900;
+  color: #ffff00;
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(0, 0, 0, 0.9));
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.4), inset 0 0 10px rgba(255, 0, 0, 0.1);
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
 }
 
 .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px rgba(38, 215, 255, 0.28);
+  transform: scale(1.08);
+  box-shadow: 0 0 30px rgba(255, 0, 0, 0.8), inset 0 0 15px rgba(255, 0, 0, 0.2);
+  background: linear-gradient(135deg, rgba(255, 0, 0, 0.4), rgba(0, 0, 0, 0.95));
 }
 
 .help-text {
   margin-top: 18px;
   text-align: center;
   font-size: 0.95rem;
-  color: #b8d7ff;
+  color: #ffff00;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.4);
 }
 
 .scoreboard-panel {
   margin-top: 20px;
   padding: 20px;
-  border-radius: 22px;
-  border: 1px solid rgba(87, 208, 255, 0.28);
-  background: linear-gradient(180deg, rgba(6, 12, 23, 0.96), rgba(8, 14, 29, 0.98));
-  box-shadow: inset 0 0 32px rgba(20, 106, 184, 0.12), 0 0 18px rgba(42, 145, 225, 0.16);
-  background-image: linear-gradient(transparent 1px, rgba(255,255,255,0.04) 1px), linear-gradient(90deg, transparent 1px, rgba(255,255,255,0.04) 1px);
+  border-radius: 0px;
+  border: 2px solid #ff0000;
+  background: linear-gradient(180deg, rgba(30, 5, 5, 0.96), rgba(40, 10, 10, 0.98));
+  box-shadow: inset 0 0 32px rgba(255, 0, 0, 0.1), 0 0 20px rgba(255, 0, 0, 0.2);
+  background-image: linear-gradient(transparent 1px, rgba(255,0,0,0.03) 1px), linear-gradient(90deg, transparent 1px, rgba(255,0,0,0.03) 1px);
   background-size: 100% 26px, 26px 100%;
 }
 
 .scoreboard-header {
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 900;
   margin-bottom: 14px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-family: "Courier New", Courier, monospace;
-  color: #a7f1ff;
-  text-shadow: 0 0 12px rgba(118, 228, 255, 0.4);
+  color: #ffff00;
+  text-shadow: 0 0 15px rgba(255, 255, 0, 0.6), 0 0 25px rgba(255, 0, 0, 0.3);
   position: relative;
 }
 
@@ -172,17 +213,19 @@ canvas {
   bottom: -8px;
   width: 72px;
   height: 3px;
-  background: linear-gradient(90deg, rgba(28, 242, 255, 0.9), rgba(29, 159, 253, 0.15));
+  background: linear-gradient(90deg, rgba(255, 255, 0, 0.9), rgba(255, 0, 0, 0.4));
   border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 255, 0, 0.4);
 }
 
 .scoreboard-list {
   padding: 0;
   margin: 0 0 14px;
   list-style: none;
-  color: #d3efff;
+  color: #ffff00;
   font-family: "Courier New", Courier, monospace;
   font-size: 0.98rem;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.3);
 }
 
 .scoreboard-item {
@@ -192,10 +235,10 @@ canvas {
   align-items: center;
   padding: 12px 14px;
   margin-bottom: 8px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 12px rgba(42, 183, 244, 0.08);
+  border-radius: 0px;
+  background: rgba(255, 0, 0, 0.08);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+  box-shadow: inset 0 0 12px rgba(255, 0, 0, 0.05);
 }
 
 .scoreboard-item:last-child {
@@ -203,35 +246,33 @@ canvas {
 }
 
 .scoreboard-item:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 0, 0, 0.05);
 }
 
 .scoreboard-item span {
-  color: #e1f9ff;
+  color: #ffff00;
+  text-shadow: 0 0 8px rgba(255, 255, 0, 0.3);
 }
 
 .score-index {
   font-weight: 900;
-  color: #37e3ff;
-  text-shadow: 0 0 8px rgba(56, 218, 255, 0.28);
+  color: #ff0000;
+  text-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
 }
 
 .score-value {
   justify-self: end;
   font-family: "Courier New", Courier, monospace;
-  color: #daf4ff;
+  color: #ffff00;
 }
 
 .powerup-status {
   font-size: 0.96rem;
-  color: #9dfbff;
+  color: #ffff00;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-}
-
-.powerup-status {
-  font-size: 0.96rem;
-  color: #9dfbff;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.4);
+  font-weight: bold;
 }
 
 @media (max-width: 640px) {

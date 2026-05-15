@@ -47,20 +47,33 @@ const SPRITES = {
   explosion: { src: "", image: new Image(), loaded: false }
 };
 
-const LEVELS = [
-  { rows: 3, columns: 8, speed: 0.8, fireRate: 0.004, scoreValue: 100, type: "normal", hardRows: 0, intermediateRows: 0 },
-  { rows: 4, columns: 9, speed: 0.95, fireRate: 0.0055, scoreValue: 125, type: "normal", hardRows: 1, intermediateRows: 0 },
-  { rows: 5, columns: 10, speed: 1.05, fireRate: 0.007, scoreValue: 150, type: "normal", hardRows: 1, intermediateRows: 1 },
-  { rows: 5, columns: 11, speed: 1.15, fireRate: 0.0085, scoreValue: 175, type: "normal", hardRows: 2, intermediateRows: 1 },
-  { rows: 6, columns: 12, speed: 1.25, fireRate: 0.01, scoreValue: 200, type: "normal", hardRows: 2, intermediateRows: 2 },
-  { rows: 6, columns: 12, speed: 1.35, fireRate: 0.012, scoreValue: 225, type: "normal", hardRows: 3, intermediateRows: 2 },
-  { rows: 7, columns: 13, speed: 1.45, fireRate: 0.014, scoreValue: 250, type: "normal", hardRows: 3, intermediateRows: 3 },
-  { rows: 0, columns: 0, speed: 0.8, fireRate: 0.008, scoreValue: 500, type: "boss", bossHealth: 100 },
-  { rows: 7, columns: 14, speed: 1.55, fireRate: 0.016, scoreValue: 275, type: "normal", hardRows: 4, intermediateRows: 3 },
-  { rows: 0, columns: 0, speed: 0.9, fireRate: 0.01, scoreValue: 750, type: "boss", bossHealth: 120 },
-  { rows: 8, columns: 15, speed: 1.65, fireRate: 0.018, scoreValue: 300, type: "normal", hardRows: 4, intermediateRows: 4 },
-  { rows: 0, columns: 0, speed: 1, fireRate: 0.012, scoreValue: 1000, type: "boss", bossHealth: 150 }
+const NORMAL_LEVELS = [
+  { rows: 3, columns: 8, speed: 0.8, fireRate: 0.004, scoreValue: 100, hardRows: 0, intermediateRows: 0 },
+  { rows: 4, columns: 9, speed: 0.95, fireRate: 0.0055, scoreValue: 125, hardRows: 1, intermediateRows: 0 },
+  { rows: 5, columns: 10, speed: 1.05, fireRate: 0.007, scoreValue: 150, hardRows: 1, intermediateRows: 1 },
+  { rows: 5, columns: 11, speed: 1.15, fireRate: 0.0085, scoreValue: 175, hardRows: 2, intermediateRows: 1 },
+  { rows: 6, columns: 12, speed: 1.25, fireRate: 0.01, scoreValue: 200, hardRows: 2, intermediateRows: 2 },
+  { rows: 6, columns: 12, speed: 1.35, fireRate: 0.012, scoreValue: 225, hardRows: 3, intermediateRows: 2 },
+  { rows: 7, columns: 13, speed: 1.45, fireRate: 0.014, scoreValue: 250, hardRows: 3, intermediateRows: 3 },
+  { rows: 7, columns: 14, speed: 1.55, fireRate: 0.016, scoreValue: 275, hardRows: 4, intermediateRows: 3 },
+  { rows: 8, columns: 15, speed: 1.65, fireRate: 0.018, scoreValue: 300, hardRows: 4, intermediateRows: 4 }
 ];
+const BOSS_LEVELS = [
+  { bossHealth: 120, speed: 0.9, fireRate: 0.01, scoreValue: 750, name: "Omega Drone", type: "boss" },
+  { bossHealth: 150, speed: 1, fireRate: 0.012, scoreValue: 1000, name: "Juggernaut", type: "boss" },
+  { bossHealth: 190, speed: 1.15, fireRate: 0.014, scoreValue: 1300, name: "Dreadnought", type: "boss" }
+];
+const TOTAL_LEVELS = NORMAL_LEVELS.length + BOSS_LEVELS.length;
+
+function getLevelConfig(level) {
+  const bossTrigger = level % 4 === 0;
+  if (bossTrigger) {
+    const bossIndex = Math.floor(level / 4) - 1;
+    return { ...BOSS_LEVELS[bossIndex], type: "boss", level };
+  }
+  const normalIndex = level - 1 - Math.floor(level / 4);
+  return { ...NORMAL_LEVELS[normalIndex], type: "normal", level };
+}
 
 let keys = { ArrowLeft: false, ArrowRight: false, Space: false };
 let gameState = {
@@ -84,11 +97,15 @@ let gameState = {
   persistentPowerups: [],
   powerupExpires: 0,
   shipLevel: 1,
+  rapidFireLevel: 0,
+  doubleShotLevel: 0,
+  spreadShotLevel: 0,
+  slowTimeLevel: 0,
   rapidFire: false,
   doubleShot: false,
   spreadShot: false,
-  shieldActive: false,
   shieldCharges: 0,
+  shieldActive: false,
   shieldExpires: 0,
   slowTime: false,
   slowExpires: 0,
@@ -191,12 +208,43 @@ function formatOverlayText(message) {
   return message.replace(/\n/g, "<br>");
 }
 
+function getPowerupSummary() {
+  const parts = [];
+  if (gameState.rapidFireLevel > 0) {
+    parts.push(`Rapid Fire x${gameState.rapidFireLevel}`);
+  }
+  if (gameState.doubleShotLevel > 0) {
+    parts.push(`Double Shot x${gameState.doubleShotLevel}`);
+  }
+  if (gameState.spreadShotLevel > 0) {
+    parts.push(`Spread Shot x${gameState.spreadShotLevel}`);
+  }
+  if (gameState.slowTimeLevel > 0) {
+    parts.push(`Slow Time x${gameState.slowTimeLevel}`);
+  }
+  if (gameState.shieldCharges > 0) {
+    parts.push(`Shield x${gameState.shieldCharges}`);
+  }
+  if (parts.length === 0) {
+    return gameState.activePowerup ? gameState.activePowerup.label : "None";
+  }
+  return parts.join(" · ");
+}
+
 function updateHUD() {
   scoreEl.textContent = gameState.score;
   levelEl.textContent = gameState.level;
   livesEl.textContent = gameState.lives;
   highScoreEl.textContent = getHighScore();
-  powerupEl.textContent = gameState.activePowerup ? gameState.activePowerup.label : "None";
+  powerupEl.textContent = getPowerupSummary();
+}
+
+function getSlowTimeMultiplier() {
+  if (!gameState.slowTime) {
+    return 1;
+  }
+  const level = Math.max(1, gameState.slowTimeLevel || 1);
+  return Math.max(0.28, 0.55 - (level - 1) * 0.08);
 }
 
 function showOverlay(message, buttonText = "START GAME") {
@@ -253,15 +301,14 @@ function resetShip() {
   };
 }
 
-function createInvaders(levelIndex) {
-  const levelConfig = LEVELS[levelIndex];
+function createInvaders(levelConfig) {
   if (levelConfig.type === "boss") {
     return [];
   }
   const invaders = [];
   const hardRowStart = Math.max(0, levelConfig.rows - levelConfig.hardRows);
   const intermediateRowStart = Math.max(0, hardRowStart - levelConfig.intermediateRows);
-  
+
   for (let row = 0; row < levelConfig.rows; row++) {
     for (let col = 0; col < levelConfig.columns; col++) {
       let type = "normal";
@@ -286,8 +333,7 @@ function createInvaders(levelIndex) {
   return invaders;
 }
 
-function createBoss(levelIndex) {
-  const levelConfig = LEVELS[levelIndex];
+function createBoss(levelConfig) {
   const bossWidth = 80;
   const bossHeight = 80;
   return {
@@ -307,19 +353,15 @@ function createBoss(levelIndex) {
 }
 
 function startLevel() {
-  const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
-  const levelConfig = LEVELS[levelIndex];
-  gameState.invaders = createInvaders(levelIndex);
-  gameState.boss = levelConfig.type === "boss" ? createBoss(levelIndex) : null;
+  const levelConfig = getLevelConfig(gameState.level);
+  gameState.invaders = createInvaders(levelConfig);
+  gameState.boss = levelConfig.type === "boss" ? createBoss(levelConfig) : null;
   gameState.bullets = [];
   gameState.enemyBullets = [];
   gameState.explosions = [];
   gameState.attackDirection = 1;
   gameState.shootingCooldown = 0;
   gameState.pauseTimer = 0;
-  if (gameState.persistentPowerups.length > 0) {
-    gameState.persistentPowerups.forEach(pu => activatePersistentPowerup(pu));
-  }
   updateHUD();
 }
 
@@ -341,6 +383,10 @@ function startGame() {
   gameState.activePowerup = null;
   gameState.powerupExpires = 0;
   gameState.shipLevel = 1;
+  gameState.rapidFireLevel = 0;
+  gameState.doubleShotLevel = 0;
+  gameState.spreadShotLevel = 0;
+  gameState.slowTimeLevel = 0;
   gameState.rapidFire = false;
   gameState.doubleShot = false;
   gameState.spreadShot = false;
@@ -375,21 +421,24 @@ function getRandomPowerupChoices(count = 2) {
   return choices;
 }
 
-function activatePersistentPowerup(powerup) {
-  gameState.persistentPowerups.push({ ...powerup, permanent: true });
+function activatePersistentPowerup(powerup, isReapply = false) {
+  if (!isReapply) {
+    gameState.persistentPowerups.push({ ...powerup, permanent: true });
+  }
   gameState.activePowerup = { ...powerup, permanent: true, duration: Infinity, stacked: true };
   gameState.powerupExpires = Infinity;
   if (powerup.type === "slow") {
     gameState.slowTime = true;
+    gameState.slowTimeLevel = (gameState.slowTimeLevel || 0) + 1;
   }
   if (powerup.type === "rapid") {
-    gameState.rapidFire = true;
+    gameState.rapidFireLevel = (gameState.rapidFireLevel || 0) + 1;
   }
   if (powerup.type === "double") {
-    gameState.doubleShot = true;
+    gameState.doubleShotLevel = (gameState.doubleShotLevel || 0) + 1;
   }
   if (powerup.type === "spread") {
-    gameState.spreadShot = true;
+    gameState.spreadShotLevel = (gameState.spreadShotLevel || 0) + 1;
   }
   if (powerup.type === "shield") {
     gameState.shieldCharges = (gameState.shieldCharges || 0) + 1;
@@ -424,7 +473,7 @@ function showChoiceOverlay(message, options, callback) {
 function nextLevel() {
   gameState.level += 1;
   gameState.gridPattern = null;
-  if (gameState.level > LEVELS.length) {
+  if (gameState.level > TOTAL_LEVELS) {
     storeScore(gameState.score);
     showVictoryOverlay(gameState.score);
     gameState.running = false;
@@ -585,18 +634,42 @@ function fireBullet() {
     return;
   }
   const bullets = [];
-  if (gameState.doubleShot) {
-    bullets.push({ x: gameState.ship.x + 8, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
-    bullets.push({ x: gameState.ship.x + gameState.ship.width - 14, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
-  } else if (gameState.spreadShot) {
-    bullets.push({ x: gameState.ship.x + gameState.ship.width / 2 - 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
-    bullets.push({ x: gameState.ship.x + 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
-    bullets.push({ x: gameState.ship.x + gameState.ship.width - 9, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+  const rapidLevel = gameState.rapidFireLevel || 0;
+  const doubleLevel = gameState.doubleShotLevel || 0;
+  const spreadLevel = gameState.spreadShotLevel || 0;
+  const hasRapid = rapidLevel > 0 || gameState.rapidFire;
+  const hasDouble = doubleLevel > 0 || gameState.doubleShot;
+  const hasSpread = spreadLevel > 0 || gameState.spreadShot;
+  const effectiveSpread = Math.max(spreadLevel, hasSpread ? 1 : 0);
+  const effectiveDouble = Math.max(doubleLevel, hasDouble ? 1 : 0);
+
+  if (hasSpread) {
+    const count = 3 + (effectiveSpread - 1) * 2;
+    const spreadOffset = 12;
+    for (let i = 0; i < count; i++) {
+      const offset = (i - Math.floor(count / 2)) * spreadOffset;
+      bullets.push({
+        x: gameState.ship.x + gameState.ship.width / 2 - 3 + offset,
+        y: gameState.ship.y,
+        width: 6,
+        height: 14,
+        speed: BULLET_SPEED
+      });
+    }
+  } else if (hasDouble) {
+    const bulletPairs = Math.max(1, 2 ** (effectiveDouble - 1));
+    const spacing = Math.min(16, 8 + bulletPairs * 2);
+    for (let i = 0; i < bulletPairs; i++) {
+      bullets.push({ x: gameState.ship.x + 8 - i * spacing, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+      bullets.push({ x: gameState.ship.x + gameState.ship.width - 14 + i * spacing, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+    }
   } else {
     bullets.push({ x: gameState.ship.x + gameState.ship.width / 2 - 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
   }
+
   bullets.forEach(bullet => gameState.bullets.push(bullet));
-  gameState.shootingCooldown = gameState.rapidFire ? 6 : 14;
+  const effectiveRapid = rapidLevel > 0 ? rapidLevel : (gameState.rapidFire ? 1 : 0);
+  gameState.shootingCooldown = Math.max(4, 14 - effectiveRapid * 2);
 }
 
 function fireEnemyBullet(invader) {
@@ -649,22 +722,35 @@ function applyPowerup(item) {
     return;
   }
 
-  if (gameState.activePowerup && gameState.activePowerup.type === "slow" && item.type !== "slow") {
-    gameState.slowTime = false;
+  if (item.type === "slow") {
+    gameState.slowTime = true;
+    gameState.slowExpires = gameState.frames + item.duration;
+    gameState.powerupExpires = gameState.frames + item.duration;
+  }
+
+  if (item.type === "rapid") {
+    gameState.rapidFire = true;
+    gameState.powerupExpires = gameState.frames + item.duration;
+  }
+
+  if (item.type === "double") {
+    gameState.doubleShot = true;
+    gameState.powerupExpires = gameState.frames + item.duration;
+  }
+
+  if (item.type === "spread") {
+    gameState.spreadShot = true;
+    gameState.powerupExpires = gameState.frames + item.duration;
+  }
+
+  if (item.type === "shield") {
+    gameState.shieldCharges = (gameState.shieldCharges || 0) + 1;
+    gameState.shieldActive = true;
+    gameState.shieldExpires = gameState.frames + item.duration;
+    gameState.powerupExpires = gameState.frames + item.duration;
   }
 
   gameState.activePowerup = item;
-  gameState.powerupExpires = gameState.frames + item.duration;
-
-  if (item.type === "shield") {
-    gameState.shieldActive = true;
-    gameState.shieldExpires = gameState.powerupExpires;
-  }
-
-  if (item.type === "slow") {
-    gameState.slowTime = true;
-    gameState.slowExpires = gameState.powerupExpires;
-  }
 }
 
 function updatePowerups() {
@@ -691,8 +777,17 @@ function updatePowerupState() {
     if (gameState.activePowerup.type === "shield") {
       gameState.shieldActive = false;
     }
-    if (gameState.activePowerup.type === "slow") {
+    if (gameState.activePowerup.type === "slow" && gameState.slowTimeLevel === 0) {
       gameState.slowTime = false;
+    }
+    if (gameState.activePowerup.type === "rapid" && gameState.rapidFireLevel === 0) {
+      gameState.rapidFire = false;
+    }
+    if (gameState.activePowerup.type === "double" && gameState.doubleShotLevel === 0) {
+      gameState.doubleShot = false;
+    }
+    if (gameState.activePowerup.type === "spread" && gameState.spreadShotLevel === 0) {
+      gameState.spreadShot = false;
     }
     gameState.activePowerup = null;
   }
@@ -711,25 +806,28 @@ function updatePowerupState() {
 }
 
 function updateInvaders() {
-  const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
-  const levelConfig = LEVELS[levelIndex];
-  
+  const levelConfig = getLevelConfig(gameState.level);
   if (levelConfig.type === "boss") {
     return;
   }
-  
+
   const invaders = gameState.invaders.filter(invader => invader.alive);
   if (invaders.length === 0) {
-    nextLevel();
+    if (!gameState.boss) {
+      nextLevel();
+    }
     return;
   }
+
   let leftMost = GAME_WIDTH;
   let rightMost = 0;
   invaders.forEach(invader => {
     leftMost = Math.min(leftMost, invader.x);
     rightMost = Math.max(rightMost, invader.x + invader.width);
   });
-  const speed = (levelConfig.speed + levelIndex * ROW_SPEED_INCREASE) * (gameState.slowTime ? 0.55 : 1);
+
+  const normalLevelIndex = gameState.level - 1 - Math.floor(gameState.level / 4);
+  const speed = (levelConfig.speed + normalLevelIndex * ROW_SPEED_INCREASE) * getSlowTimeMultiplier();
   const shouldDrop = (rightMost >= GAME_WIDTH - 16 && gameState.attackDirection > 0) || (leftMost <= 16 && gameState.attackDirection < 0);
   if (shouldDrop) {
     gameState.attackDirection *= -1;
@@ -761,8 +859,7 @@ function updateBoss() {
     return;
   }
 
-  const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
-  const levelConfig = LEVELS[levelIndex];
+  const levelConfig = getLevelConfig(gameState.level);
   
   if (!gameState.boss || levelConfig.type !== "boss") {
     return;
@@ -817,7 +914,7 @@ function updateBoss() {
     gameState.boss.gridActive = false;
   }
   
-  const moveSpeed = (gameState.slowTime ? 2.2 : 3.5);
+  const moveSpeed = 3.5 * getSlowTimeMultiplier();
   const leftBound = 60;
   const rightBound = GAME_WIDTH - gameState.boss.width - 60;
   
@@ -871,8 +968,8 @@ function detectCollisions() {
         
         if (invader.health <= 0) {
           invader.alive = false;
-          const levelIndex = Math.min(gameState.level - 1, LEVELS.length - 1);
-          let baseScore = LEVELS[levelIndex].scoreValue;
+          const levelConfig = getLevelConfig(gameState.level);
+          let baseScore = levelConfig.scoreValue;
           if (invader.type === "hard") {
             baseScore *= 2;
           } else if (invader.type === "intermediate") {
@@ -920,7 +1017,7 @@ function updateBullets() {
 
   for (let index = gameState.enemyBullets.length - 1; index >= 0; index--) {
     const bullet = gameState.enemyBullets[index];
-    const speedMultiplier = gameState.slowTime ? 0.55 : 1;
+    const speedMultiplier = getSlowTimeMultiplier();
     bullet.y += bullet.speed * speedMultiplier;
     if (bullet.y > GAME_HEIGHT) {
       gameState.enemyBullets.splice(index, 1);
@@ -1268,6 +1365,7 @@ startButton.addEventListener("click", function handleStartButtonClick() {
     showChoiceOverlay("CHOOSE YOUR INITIAL LOADOUT", choices, choice => {
       startGame();
       activatePersistentPowerup(choice);
+      updateHUD();
     });
   }
 });

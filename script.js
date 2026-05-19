@@ -9,7 +9,7 @@ const scoreboardList = document.getElementById("scoreboardList");
 const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlayText");
 const startButton = document.getElementById("startButton");
-const API_ROOT = window.location.protocol.startsWith("http") ? window.location.origin : "";
+const API_ROOT = window.location.protocol.startsWith("http") ? window.location.origin : "http://localhost:3000";
 
 const GAME_WIDTH = canvas.width;
 const GAME_HEIGHT = canvas.height;

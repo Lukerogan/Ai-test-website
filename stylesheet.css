@@ -375,6 +375,32 @@ canvas {
   text-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
 }
 
+.score-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.score-name {
+  font-weight: bold;
+  letter-spacing: 0.04em;
+}
+
+.score-meta {
+  font-size: 0.8rem;
+  color: #ffeb8f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.overlay-meta {
+  margin-top: 12px;
+  font-size: 1rem;
+  color: #92ff92;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
 .score-value {
   justify-self: end;
   font-family: "Courier New", Courier, monospace;

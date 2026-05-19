@@ -95,6 +95,7 @@ let gameState = {
   shootingCooldown: 0,
   pauseTimer: 0,
   activePowerup: null,
+  completedLevel: 0,
   persistentPowerups: [],
   powerupExpires: 0,
   shipLevel: 1,
@@ -182,11 +183,15 @@ function updateScoreboardDisplay(entries = []) {
     return;
   }
   list.slice(0, MAX_SCOREBOARD).forEach((entry, index) => {
+    const perfect = entry.level === TOTAL_LEVELS && entry.lives === 3;
     const li = document.createElement("li");
     li.className = "scoreboard-item";
     li.innerHTML = `
       <span class="score-index">${index + 1}</span>
-      <span class="score-name">${entry.name ? entry.name : "Anonymous"}</span>
+      <div class="score-entry">
+        <div class="score-name">${entry.name ? entry.name : "Anonymous"}</div>
+        <div class="score-meta">Level ${entry.level} · Lives ${entry.lives}${perfect ? " · PERFECT SCORE" : ""}</div>
+      </div>
       <span class="score-value">${entry.score}</span>
     `;
     scoreboardList.appendChild(li);
@@ -202,15 +207,18 @@ async function loadLeaderboard() {
     const data = await response.json();
     updateScoreboardDisplay(data.entries || data);
   } catch (error) {
-    scoreboardList.innerHTML = `<li class="scoreboard-item">Leaderboard unavailable</li>`;
+    updateScoreboardDisplay(getScoreboard());
   }
 }
 
 function showSubmitOverlay(score, title, subtitle) {
+  const completedLevel = gameState.completedLevel || gameState.level;
+  const perfectText = completedLevel === TOTAL_LEVELS && gameState.lives === 3 ? "PERFECT SCORE" : `Level ${completedLevel} · Lives ${gameState.lives}`;
   overlayText.innerHTML = `
     <div class="overlay-title">${title}</div>
     <div class="overlay-subtitle">${subtitle}</div>
     <div class="overlay-score">FINAL SCORE: ${score}</div>
+    <div class="overlay-meta">${perfectText}</div>
   `;
 
   const optionArea = document.getElementById("optionButtons");
@@ -278,12 +286,14 @@ async function submitScoreFromOverlay(score, nameInput, statusElement, submitBut
 
   submitButton.disabled = true;
   statusElement.textContent = "Submitting score...";
+  const completedLevel = gameState.completedLevel || gameState.level;
+  const finalLives = gameState.lives;
 
   try {
     const response = await fetch(`${API_ROOT}/api/score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, score: Math.max(0, Math.floor(score || 0)) })
+      body: JSON.stringify({ name, score: Math.max(0, Math.floor(score || 0)), level: completedLevel, lives: finalLives })
     });
 
     if (!response.ok) {
@@ -293,21 +303,30 @@ async function submitScoreFromOverlay(score, nameInput, statusElement, submitBut
 
     const result = await response.json();
     statusElement.textContent = `Score submitted for ${result.name}!`;
+    addScoreboardEntry(score, finalLives, completedLevel, name);
     nameInput.value = "";
     await loadLeaderboard();
   } catch (error) {
-    statusElement.textContent = `Submit failed: ${error.message}`;
+    addScoreboardEntry(score, finalLives, completedLevel, name);
+    statusElement.textContent = `Saved locally because leaderboard server is unavailable.`;
+    updateScoreboardDisplay(getScoreboard());
   } finally {
     submitButton.disabled = false;
   }
 }
 
-function addScoreboardEntry(score) {
+function addScoreboardEntry(score, lives = 0, level = 1, name = "Anonymous") {
   const entries = getScoreboard();
-  entries.push({ score, time: Date.now() });
-  entries.sort((a, b) => b.score - a.score);
+  entries.push({
+    name: name || "Anonymous",
+    score: Math.max(0, Math.floor(score || 0)),
+    level,
+    lives,
+    time: Date.now()
+  });
+  entries.sort((a, b) => b.score - a.score || a.time - b.time);
   saveScoreboard(entries.slice(0, MAX_SCOREBOARD));
-  updateScoreboardDisplay();
+  updateScoreboardDisplay(entries);
 }
 
 function storeScore(score) {
@@ -472,6 +491,7 @@ function startGame() {
   gameState.score = 0;
   gameState.level = 1;
   gameState.lives = 3;
+  gameState.completedLevel = 0;
   gameState.running = true;
   gameState.gameOver = false;
   gameState.hasStarted = true;
@@ -578,6 +598,7 @@ function nextLevel() {
   gameState.level += 1;
   gameState.gridPattern = null;
   if (gameState.level > TOTAL_LEVELS) {
+    gameState.completedLevel = TOTAL_LEVELS;
     storeScore(gameState.score);
     showVictoryOverlay(gameState.score);
     gameState.running = false;
@@ -600,6 +621,7 @@ function showMGSGameOver(score) {
 }
 
 function endGame() {
+  gameState.completedLevel = gameState.level;
   storeScore(gameState.score);
   gameState.running = false;
   gameState.gameOver = true;

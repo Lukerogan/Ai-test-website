@@ -9,6 +9,7 @@ const scoreboardList = document.getElementById("scoreboardList");
 const overlay = document.getElementById("overlay");
 const overlayText = document.getElementById("overlayText");
 const startButton = document.getElementById("startButton");
+const API_ROOT = window.location.protocol.startsWith("http") ? window.location.origin : "";
 
 const GAME_WIDTH = canvas.width;
 const GAME_HEIGHT = canvas.height;
@@ -173,19 +174,132 @@ function saveScoreboard(entries) {
   localStorage.setItem(SCOREBOARD_KEY, JSON.stringify(entries));
 }
 
-function updateScoreboardDisplay() {
-  const entries = getScoreboard();
+function updateScoreboardDisplay(entries = []) {
+  const list = Array.isArray(entries) ? entries : [];
   scoreboardList.innerHTML = "";
-  if (entries.length === 0) {
-    scoreboardList.innerHTML = `<li class="scoreboard-item">No scores yet</li>`;
+  if (list.length === 0) {
+    scoreboardList.innerHTML = `<li class="scoreboard-item">No leaderboard entries yet</li>`;
     return;
   }
-  entries.slice(0, MAX_SCOREBOARD).forEach((entry, index) => {
+  list.slice(0, MAX_SCOREBOARD).forEach((entry, index) => {
     const li = document.createElement("li");
     li.className = "scoreboard-item";
-    li.innerHTML = `<span class="score-index">${index + 1}</span><span class="score-value">${entry.score}</span>`;
+    li.innerHTML = `
+      <span class="score-index">${index + 1}</span>
+      <span class="score-name">${entry.name ? entry.name : "Anonymous"}</span>
+      <span class="score-value">${entry.score}</span>
+    `;
     scoreboardList.appendChild(li);
   });
+}
+
+async function loadLeaderboard() {
+  try {
+    const response = await fetch(`${API_ROOT}/api/leaderboard?limit=${MAX_SCOREBOARD}`);
+    if (!response.ok) {
+      throw new Error("Cannot load leaderboard");
+    }
+    const data = await response.json();
+    updateScoreboardDisplay(data.entries || data);
+  } catch (error) {
+    scoreboardList.innerHTML = `<li class="scoreboard-item">Leaderboard unavailable</li>`;
+  }
+}
+
+function showSubmitOverlay(score, title, subtitle) {
+  overlayText.innerHTML = `
+    <div class="overlay-title">${title}</div>
+    <div class="overlay-subtitle">${subtitle}</div>
+    <div class="overlay-score">FINAL SCORE: ${score}</div>
+  `;
+
+  const optionArea = document.getElementById("optionButtons");
+  optionArea.innerHTML = "";
+  optionArea.style.display = "flex";
+  optionArea.style.flexDirection = "column";
+  optionArea.style.alignItems = "center";
+  optionArea.style.width = "100%";
+  optionArea.style.gap = "14px";
+
+  const overlayForm = document.createElement("div");
+  overlayForm.className = "overlay-form";
+
+  const nameInput = document.createElement("input");
+  nameInput.className = "overlay-input";
+  nameInput.type = "text";
+  nameInput.maxLength = 20;
+  nameInput.placeholder = "ENTER YOUR NAME";
+
+  const status = document.createElement("div");
+  status.className = "overlay-status";
+  status.textContent = "Enter your name to submit your score.";
+
+  const submitBtn = document.createElement("button");
+  submitBtn.className = "btn";
+  submitBtn.textContent = "SUBMIT SCORE";
+  submitBtn.addEventListener("click", () => submitScoreFromOverlay(score, nameInput, status, submitBtn));
+
+  nameInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      submitScoreFromOverlay(score, nameInput, status, submitBtn);
+    }
+  });
+
+  const playAgainBtn = document.createElement("button");
+  playAgainBtn.className = "btn";
+  playAgainBtn.textContent = "PLAY AGAIN";
+  playAgainBtn.addEventListener("click", () => {
+    optionArea.innerHTML = "";
+    hideOverlay();
+    gameState.gameOver = false;
+    gameState.hasStarted = false;
+    gameState.running = false;
+    gameState.awaitingChoice = false;
+    gameState.gridPattern = null;
+    showStartupScreen();
+  });
+
+  overlayForm.appendChild(nameInput);
+  overlayForm.appendChild(submitBtn);
+  optionArea.appendChild(overlayForm);
+  optionArea.appendChild(status);
+  optionArea.appendChild(playAgainBtn);
+
+  overlay.style.display = "flex";
+  startButton.style.display = "none";
+}
+
+async function submitScoreFromOverlay(score, nameInput, statusElement, submitButton) {
+  const name = nameInput.value.trim().slice(0, 20);
+  if (!name) {
+    statusElement.textContent = "Please enter a name before submitting.";
+    return;
+  }
+
+  submitButton.disabled = true;
+  statusElement.textContent = "Submitting score...";
+
+  try {
+    const response = await fetch(`${API_ROOT}/api/score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, score: Math.max(0, Math.floor(score || 0)) })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to submit score");
+    }
+
+    const result = await response.json();
+    statusElement.textContent = `Score submitted for ${result.name}!`;
+    nameInput.value = "";
+    await loadLeaderboard();
+  } catch (error) {
+    statusElement.textContent = `Submit failed: ${error.message}`;
+  } finally {
+    submitButton.disabled = false;
+  }
 }
 
 function addScoreboardEntry(score) {
@@ -201,7 +315,6 @@ function storeScore(score) {
   if (score > currentHigh) {
     localStorage.setItem(HIGH_SCORE_KEY, String(score));
   }
-  addScoreboardEntry(score);
 }
 
 function formatOverlayText(message) {
@@ -244,7 +357,7 @@ function getSlowTimeMultiplier() {
     return 1;
   }
   const level = Math.max(1, gameState.slowTimeLevel || 1);
-  return Math.max(0.28, 0.55 - (level - 1) * 0.08);
+  return Math.max(0.18, 0.45 - (level - 1) * 0.1);
 }
 
 function showOverlay(message, buttonText = "START GAME") {
@@ -261,31 +374,7 @@ function showOverlay(message, buttonText = "START GAME") {
 }
 
 function showVictoryOverlay(score) {
-  const victoryHTML = `
-    <div style="text-align: center; animation: pulse 0.6s ease-in-out infinite; font-size: 2.8rem; font-weight: 900; letter-spacing: 0.2em;">
-      ★ MISSION COMPLETE ★
-    </div>
-    <div style="font-size: 2.8rem; margin: 20px 0; color: #ffff00; text-shadow: 0 0 30px rgba(255, 255, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4); font-weight: 900; letter-spacing: 0.1em;">VICTORY</div>
-    <div style="font-size: 1.3rem; margin: 16px 0; color: #ffff00; text-shadow: 0 0 15px rgba(255, 255, 0, 0.6);">The threat has been eliminated!</div>
-    <div style="font-size: 1.6rem; margin: 20px 0; color: #ffff00; text-shadow: 0 0 20px rgba(255, 255, 0, 0.7); font-weight: bold;">Final Score: ${score}</div>
-    <div style="font-size: 1rem; color: #ffff00; margin-top: 16px; text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);">★ Added to hall of fame ★</div>
-  `;
-  overlayText.innerHTML = victoryHTML;
-  startButton.textContent = "PLAY AGAIN";
-  startButton.style.display = "inline-flex";
-  overlay.style.display = "flex";
-  
-  if (!document.getElementById('victory-style')) {
-    const style = document.createElement('style');
-    style.id = 'victory-style';
-    style.textContent = `
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); color: #ffff00; text-shadow: 0 0 30px rgba(255, 255, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4); }
-        50% { opacity: 0.6; transform: scale(1.08); color: #ff0000; text-shadow: 0 0 40px rgba(255, 0, 0, 0.8), 0 0 80px rgba(255, 0, 0, 0.5); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  showSubmitOverlay(score, "MISSION COMPLETE", "Victory! Submit your score to the leaderboard.");
 }
 
 function hideOverlay() {
@@ -309,6 +398,15 @@ function createInvaders(levelConfig) {
   const hardRowStart = Math.max(0, levelConfig.rows - levelConfig.hardRows);
   const intermediateRowStart = Math.max(0, hardRowStart - levelConfig.intermediateRows);
 
+  let spacing = INVADER_PADDING;
+  const gridWidth = levelConfig.columns * INVADER_WIDTH + (levelConfig.columns - 1) * spacing;
+  const availableWidth = GAME_WIDTH - LEFT_PADDING * 2;
+  if (gridWidth > availableWidth) {
+    spacing = Math.max(8, (availableWidth - levelConfig.columns * INVADER_WIDTH) / (levelConfig.columns - 1));
+  }
+  const totalWidth = levelConfig.columns * INVADER_WIDTH + (levelConfig.columns - 1) * spacing;
+  const startX = Math.max(LEFT_PADDING, (GAME_WIDTH - totalWidth) / 2);
+
   for (let row = 0; row < levelConfig.rows; row++) {
     for (let col = 0; col < levelConfig.columns; col++) {
       let type = "normal";
@@ -318,7 +416,7 @@ function createInvaders(levelConfig) {
         type = "intermediate";
       }
       invaders.push({
-        x: LEFT_PADDING + col * (INVADER_WIDTH + INVADER_PADDING),
+        x: startX + col * (INVADER_WIDTH + spacing),
         y: TOP_PADDING + row * (INVADER_HEIGHT + 10),
         width: INVADER_WIDTH,
         height: INVADER_HEIGHT,
@@ -366,11 +464,17 @@ function startLevel() {
 }
 
 function startGame() {
+  const existingGameOver = document.getElementById('mgs-game-over');
+  if (existingGameOver) {
+    existingGameOver.remove();
+  }
+
   gameState.score = 0;
   gameState.level = 1;
   gameState.lives = 3;
   gameState.running = true;
   gameState.gameOver = false;
+  gameState.hasStarted = true;
   gameState.bullets = [];
   gameState.enemyBullets = [];
   gameState.powerups = [];
@@ -492,117 +596,7 @@ function nextLevel() {
 }
 
 function showMGSGameOver(score) {
-  const message = "GAME OVER";
-  const container = document.createElement("div");
-  container.id = "mgs-game-over";
-  container.style.cssText = `
-    position: fixed;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(20, 0, 0, 0.95));
-    z-index: 9999;
-    font-family: Arial, sans-serif;
-  `;
-  
-  const textContainer = document.createElement("div");
-  textContainer.style.cssText = `
-    font-size: 120px;
-    font-weight: 900;
-    letter-spacing: 8px;
-    text-align: center;
-    margin-bottom: 40px;
-    min-height: 150px;
-    display: flex;
-    align-items: center;
-  `;
-  
-  const scoreContainer = document.createElement("div");
-  scoreContainer.style.cssText = `
-    font-size: 32px;
-    color: #ffff00;
-    letter-spacing: 2px;
-    text-shadow: 0 0 20px rgba(255, 255, 0, 0.6);
-  `;
-  scoreContainer.textContent = `FINAL SCORE: ${score}`;
-  
-  const playAgainBtn = document.createElement("button");
-  playAgainBtn.style.cssText = `
-    margin-top: 40px;
-    padding: 16px 40px;
-    font-size: 20px;
-    font-weight: bold;
-    border: 2px solid #ff0000;
-    background: rgba(0, 0, 0, 0.8);
-    color: #ff0000;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.2s;
-  `;
-  playAgainBtn.textContent = "TRY AGAIN";
-  playAgainBtn.onmouseover = () => {
-    playAgainBtn.style.background = "#ff0000";
-    playAgainBtn.style.color = "#000000";
-  };
-  playAgainBtn.onmouseout = () => {
-    playAgainBtn.style.background = "rgba(0, 0, 0, 0.8)";
-    playAgainBtn.style.color = "#ff0000";
-  };
-  playAgainBtn.onclick = () => {
-    container.remove();
-    startGame();
-  };
-  
-  container.appendChild(textContainer);
-  container.appendChild(scoreContainer);
-  container.appendChild(playAgainBtn);
-  document.body.appendChild(container);
-  
-  let charIndex = 0;
-  const chars = message.split("");
-  const dropInterval = setInterval(() => {
-    if (charIndex < chars.length) {
-      const char = document.createElement("span");
-      char.textContent = chars[charIndex];
-      char.style.cssText = `
-        display: inline-block;
-        color: #ff0000;
-        text-shadow: 0 0 30px rgba(255, 0, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4);
-        animation: mgsLetterDrop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        margin: 0 2px;
-      `;
-      textContainer.appendChild(char);
-      charIndex++;
-    } else {
-      clearInterval(dropInterval);
-    }
-  }, 80);
-  
-  if (!document.getElementById("mgs-animation-style")) {
-    const style = document.createElement("style");
-    style.id = "mgs-animation-style";
-    style.textContent = `
-      @keyframes mgsLetterDrop {
-        0% {
-          opacity: 0;
-          transform: translateY(-100px) scale(1.2);
-          filter: blur(8px);
-        }
-        50% {
-          opacity: 1;
-          transform: translateY(10px) scale(0.95);
-        }
-        100% {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-          filter: blur(0);
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  showSubmitOverlay(score, "GAME OVER", "You lost this run. Submit your score and try again.");
 }
 
 function endGame() {
@@ -612,6 +606,7 @@ function endGame() {
   overlay.style.display = "none";
   showMGSGameOver(gameState.score);
 }
+
 
 function loseLife() {
   gameState.lives -= 1;
@@ -643,29 +638,37 @@ function fireBullet() {
   const effectiveSpread = Math.max(spreadLevel, hasSpread ? 1 : 0);
   const effectiveDouble = Math.max(doubleLevel, hasDouble ? 1 : 0);
 
+  const offsets = new Set();
+  const addOffset = offset => offsets.add(offset);
+
   if (hasSpread) {
     const count = 3 + (effectiveSpread - 1) * 2;
     const spreadOffset = 12;
     for (let i = 0; i < count; i++) {
-      const offset = (i - Math.floor(count / 2)) * spreadOffset;
-      bullets.push({
-        x: gameState.ship.x + gameState.ship.width / 2 - 3 + offset,
-        y: gameState.ship.y,
-        width: 6,
-        height: 14,
-        speed: BULLET_SPEED
-      });
-    }
-  } else if (hasDouble) {
-    const bulletPairs = Math.max(1, 2 ** (effectiveDouble - 1));
-    const spacing = Math.min(16, 8 + bulletPairs * 2);
-    for (let i = 0; i < bulletPairs; i++) {
-      bullets.push({ x: gameState.ship.x + 8 - i * spacing, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
-      bullets.push({ x: gameState.ship.x + gameState.ship.width - 14 + i * spacing, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+      addOffset((i - Math.floor(count / 2)) * spreadOffset);
     }
   } else {
-    bullets.push({ x: gameState.ship.x + gameState.ship.width / 2 - 3, y: gameState.ship.y, width: 6, height: 14, speed: BULLET_SPEED });
+    addOffset(0);
   }
+
+  if (hasDouble) {
+    const bulletPairs = Math.max(1, 2 ** (effectiveDouble - 1));
+    const spacing = 12 + effectiveDouble * 4;
+    for (let i = 0; i < bulletPairs; i++) {
+      addOffset(-(i + 1) * spacing);
+      addOffset((i + 1) * spacing);
+    }
+  }
+
+  offsets.forEach(offset => {
+    bullets.push({
+      x: gameState.ship.x + gameState.ship.width / 2 - 3 + offset,
+      y: gameState.ship.y,
+      width: 6,
+      height: 14,
+      speed: BULLET_SPEED
+    });
+  });
 
   bullets.forEach(bullet => gameState.bullets.push(bullet));
   const effectiveRapid = rapidLevel > 0 ? rapidLevel : (gameState.rapidFire ? 1 : 0);
@@ -827,7 +830,9 @@ function updateInvaders() {
   });
 
   const normalLevelIndex = gameState.level - 1 - Math.floor(gameState.level / 4);
-  const speed = (levelConfig.speed + normalLevelIndex * ROW_SPEED_INCREASE) * getSlowTimeMultiplier();
+  const baseSpeed = levelConfig.speed + normalLevelIndex * ROW_SPEED_INCREASE;
+  const maxNormalSpeed = NORMAL_LEVELS[6].speed + 6 * ROW_SPEED_INCREASE;
+  const speed = Math.min(baseSpeed, maxNormalSpeed) * getSlowTimeMultiplier();
   const shouldDrop = (rightMost >= GAME_WIDTH - 16 && gameState.attackDirection > 0) || (leftMost <= 16 && gameState.attackDirection < 0);
   if (shouldDrop) {
     gameState.attackDirection *= -1;
@@ -868,7 +873,7 @@ function updateBoss() {
   gameState.boss.fireCounter += 1;
   
   const gridCycleLength = 260;
-  const gridShowDuration = 70;
+  const gridShowDuration = 60; // roughly one second at 60 FPS
   const gridFireStart = gridShowDuration;
   const gridFireEnd = gridShowDuration + 50;
   
@@ -1133,7 +1138,7 @@ function drawBoss() {
   
   if (gameState.boss.gridActive && gameState.gridPattern) {
     const pattern = gameState.gridPattern;
-    const opacity = Math.max(0, 1 - gameState.boss.gridTimer / 15);
+    const opacity = 0.35;
     
     for (let r = 0; r < pattern.rows; r++) {
       for (let c = 0; c < pattern.cols; c++) {
@@ -1294,11 +1299,26 @@ startButton.addEventListener("click", () => {
     return;
   }
   if (gameState.gameOver) {
-    startGame();
+    gameState.gameOver = false;
+    gameState.hasStarted = false;
+    gameState.running = false;
+    gameState.awaitingChoice = false;
+    gameState.gridPattern = null;
+    showStartupScreen();
     return;
   }
 
   if (!gameState.running) {
+    if (!gameState.hasStarted && overlay.style.display === "flex") {
+      const choices = getRandomPowerupChoices(2);
+      showChoiceOverlay("CHOOSE YOUR INITIAL LOADOUT", choices, choice => {
+        startGame();
+        activatePersistentPowerup(choice);
+        updateHUD();
+      });
+      return;
+    }
+
     hideOverlay();
     gameState.running = true;
     const aliveInvaders = gameState.invaders.some(invader => invader.alive);
@@ -1349,7 +1369,7 @@ function showStartupScreen() {
 
 function initializeGame() {
   resetShip();
-  updateScoreboardDisplay();
+  loadLeaderboard();
   updateHUD();
   tryLoadSprites();
   requestAnimationFrame(loop);
@@ -1358,14 +1378,3 @@ function initializeGame() {
 
 initializeGame();
 
-startButton.addEventListener("click", function handleStartButtonClick() {
-  if (!gameState.running && !gameState.awaitingChoice && gameState.gameOver === false && overlay.style.display === "flex") {
-    const choices = getRandomPowerupChoices(2);
-    startButton.removeEventListener("click", handleStartButtonClick);
-    showChoiceOverlay("CHOOSE YOUR INITIAL LOADOUT", choices, choice => {
-      startGame();
-      activatePersistentPowerup(choice);
-      updateHUD();
-    });
-  }
-});

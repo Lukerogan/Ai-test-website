@@ -27,7 +27,12 @@ body::before {
 }
 
 .game-shell {
-  width: min(92vw, 900px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(98vw, 1200px);
+  max-width: 1200px;
+  max-height: calc(100vh - 20px);
   padding: 20px;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(30, 5, 5, 0.98), rgba(40, 10, 10, 0.95));
@@ -36,6 +41,7 @@ body::before {
     inset 0 0 160px rgba(255, 0, 0, 0.05),
     0 0 40px rgba(255, 0, 0, 0.2),
     0 30px 90px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
 }
 
 .status-bar {
@@ -80,6 +86,9 @@ body::before {
 
 .canvas-wrapper {
   position: relative;
+  flex: 1 1 800px;
+  min-width: 560px;
+  max-width: 800px;
   border-radius: 20px;
   overflow: hidden;
   background: radial-gradient(circle at top center, rgba(255, 0, 0, 0.05), transparent 32%),
@@ -95,6 +104,72 @@ canvas {
   background: radial-gradient(circle at 50% 12%, rgba(200, 0, 0, 0.04), transparent 28%),
     radial-gradient(circle at 80% 18%, rgba(255, 255, 0, 0.03), transparent 22%),
     #050505;
+}
+
+.main-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 0;
+  flex-wrap: wrap;
+}
+
+.scoreboard-panel {
+  flex: 0 0 280px;
+  min-width: 260px;
+  padding: 20px;
+  border-radius: 0px;
+  border: 2px solid #ff0000;
+  background: linear-gradient(180deg, rgba(30, 5, 5, 0.96), rgba(40, 10, 10, 0.98));
+  box-shadow: inset 0 0 32px rgba(255, 0, 0, 0.1), 0 0 20px rgba(255, 0, 0, 0.2);
+  background-image: linear-gradient(transparent 1px, rgba(255,0,0,0.03) 1px), linear-gradient(90deg, transparent 1px, rgba(255,0,0,0.03) 1px);
+  background-size: 100% 26px, 26px 100%;
+}
+
+.overlay-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  width: min(100%, 360px);
+}
+
+.overlay-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffff00;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.overlay-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.overlay-status {
+  font-size: 0.95rem;
+  color: #dcdcdc;
+  opacity: 0.95;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+.scoreboard-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 0;
+}
+
+.powerup-status {
+  white-space: pre-line;
 }
 
 /* canvas sizing restored to default to avoid clipping game view */
@@ -121,6 +196,28 @@ canvas {
   color: #ff0000;
   text-shadow: 0 0 30px rgba(255, 0, 0, 0.8), 0 0 60px rgba(255, 0, 0, 0.4), 0 0 90px rgba(255, 0, 0, 0.2);
   font-weight: 900;
+}
+
+.overlay-title {
+  font-size: clamp(2rem, 3vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  margin-bottom: 10px;
+}
+
+.overlay-subtitle {
+  font-size: 1rem;
+  color: #f7d875;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.overlay-score {
+  font-size: 1.45rem;
+  color: #ffff00;
+  font-weight: bold;
+  margin-bottom: 10px;
 }
 
 .option-buttons {
@@ -259,12 +356,20 @@ canvas {
   display: none;
 }
 
-.scoreboard-item span {
-  color: #ffff00;
-  text-shadow: 0 0 8px rgba(255, 255, 0, 0.3);
+.scoreboard-item {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border-radius: 0px;
+  background: rgba(255, 0, 0, 0.06);
+  border: 1px solid rgba(255, 0, 0, 0.16);
+  box-shadow: inset 0 0 8px rgba(255, 0, 0, 0.04);
 }
 
-.score-index {
+.scoreboard-item:last-child {
   font-weight: 900;
   color: #ff0000;
   text-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
@@ -294,5 +399,14 @@ canvas {
   }
   .overlay-text {
     font-size: 2.2rem;
+  }
+  .main-panel {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .scoreboard-panel,
+  .canvas-wrapper {
+    min-width: 100%;
+    max-width: 100%;
   }
 }

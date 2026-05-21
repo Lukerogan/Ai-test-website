@@ -324,7 +324,7 @@ function addScoreboardEntry(score, lives = 0, level = 1, name = "Anonymous") {
     lives,
     time: Date.now()
   });
-  entries.sort((a, b) => b.score - a.score || a.time - b.time);
+  entries.sort((a, b) => b.score - a.score || b.lives - a.lives || a.time - b.time);
   saveScoreboard(entries.slice(0, MAX_SCOREBOARD));
   updateScoreboardDisplay(entries);
 }
